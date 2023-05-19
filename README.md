@@ -44,3 +44,20 @@ Fields:
 - `body_bytes_sent`
 - `http_referer`
 - `user_agent`
+
+### syslog-bsd
+Original BSD syslog format defined in [RFC-3164](https://www.ietf.org/rfc/rfc3164.txt)
+Fields:
+- `priority`
+- `timestamp`
+- `hostname`
+- `message`
+
+## TODO
+- More formats
+- Add argument to draw logs from file
+- Autodetect format based on what rules are able to parse it and the file being read
+- Add colour to matched fieled if outputting to a terminal
+- Support matching on multiple fields? (You can always just pipe loggrep into loggrep to do this...)
+- Tests, always tests
+- Support custom log formats from config file
