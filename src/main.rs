@@ -33,6 +33,13 @@ fn main() -> io::Result<()> {
         // TODO Syslog IETF format
         // TODO Syslog Extended IETF format
         // https://datatracker.ietf.org/doc/html/rfc5424
+
+        // Python default format
+        // %(levelname)s:%(name)s:%(message)s
+        // https://github.com/python/cpython/blob/main/Lib/logging/__init__.py#LL538C19-L538C19
+        // E.g. ERROR:root:Some error
+        // E.g. WARNING:root:This is a log line!
+        ("python", r"^(?<levelname>\w+):(?<name>[\w.]+):(?<message>.+)$")
     ]);
 
     let args = Cli::parse();
