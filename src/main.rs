@@ -7,16 +7,22 @@ use std::collections::HashMap;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(short = 'F', long)]
+    #[arg(short = 'F', long, help = "Specify the expected format of the logs")]
     format: Option<String>,
 
-    #[arg(short = 'I', long)]
+    #[arg(short = 'I', long, help = "Prints info about the log format instead of filtering")]
     info: bool,
 
-    #[arg(value_parser)]
+    #[arg(short = 'i', long, help = "Ignore case")]
+    ignore_case: bool,
+
+    #[arg(short = 'v', long, help = "Invert the sense of matching, to select non-matching lines")]
+    invert_match: bool,
+
+    #[arg(value_parser, help = "Field to filter on")]
     field: Option<String>,
 
-    #[arg(value_parser)]
+    #[arg(value_parser, help = "Regex to filter the field on")]
     regex: Option<String>
 }
 
@@ -68,21 +74,26 @@ fn main() -> io::Result<()> {
         }
 
         let field = args.field.unwrap();
-        let match_re = Regex::new(args.regex.unwrap().as_str()).unwrap();
+        let regex = if args.ignore_case {
+            "(?i)".to_string() + args.regex.unwrap().as_str()
+        } else {
+            args.regex.unwrap()
+        };
+        let match_re = Regex::new(regex.as_str()).unwrap();
 
         let extract_re = match &args.format {
             Some(format_arg) => Regex::new(regexes[format_arg.as_str()]).unwrap(),
             None => {
                 let first_line = lines.next().unwrap().unwrap();
                 let (_, regex) = autodetect_format(regexes, first_line.as_str());
-                process_line(&regex, &match_re, field.as_str(), first_line.as_str());
+                process_line(&regex, &match_re, field.as_str(), first_line.as_str(), args.invert_match);
                 regex
             }
         };
 
         for line in lines {
             let line = line.unwrap();
-            process_line(&extract_re, &match_re, field.as_str(), line.as_str());
+            process_line(&extract_re, &match_re, field.as_str(), line.as_str(), args.invert_match);
         }
     }
     Ok(())
@@ -99,7 +110,7 @@ fn autodetect_format<'a>(regexes: HashMap<&'a str, &str>, line: &str) -> (&'a st
 }
 
 
-fn process_line(extract_re: &Regex, match_re: &Regex, field: &str, line: &str) {
+fn process_line(extract_re: &Regex, match_re: &Regex, field: &str, line: &str, invert_match: bool) {
     let line = line.trim();
     if line.is_empty() {
         return;
@@ -109,7 +120,7 @@ fn process_line(extract_re: &Regex, match_re: &Regex, field: &str, line: &str) {
     match captures {
         Some(captures) => {
             let match_field = captures.name(field).unwrap().as_str();
-            if match_re.is_match(match_field) {
+            if match_re.is_match(match_field) != invert_match {
                 println!("{}", line)
             }
         }
