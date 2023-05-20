@@ -56,8 +56,8 @@ Fields:
 ## TODO
 - More formats
 - Add argument to draw logs from file
-- Autodetect format based on what rules are able to parse it and the file being read
-- Add colour to matched fieled if outputting to a terminal
+- Add colour to matched field if outputting to a terminal
 - Support matching on multiple fields? (You can always just pipe loggrep into loggrep to do this...)
 - Tests, always tests
 - Support custom log formats from config file
+- Make output of -I a bit clearer (particularly the regex)

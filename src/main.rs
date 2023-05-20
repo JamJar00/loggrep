@@ -10,11 +10,14 @@ struct Cli {
     #[arg(short = 'F', long)]
     format: Option<String>,
 
-    #[arg(value_parser)]
-    field: String,
+    #[arg(short = 'I', long)]
+    info: bool,
 
     #[arg(value_parser)]
-    regex: String
+    field: Option<String>,
+
+    #[arg(value_parser)]
+    regex: Option<String>
 }
 
 fn main() -> io::Result<()> {
@@ -45,21 +48,42 @@ fn main() -> io::Result<()> {
     let args = Cli::parse();
     let mut lines = io::stdin().lock().lines();
 
-    let match_re = Regex::new(args.regex.as_str()).unwrap();
+    if args.info {
+        let (format_name, extract_re) = match &args.format {
+            Some(format_arg) => (format_arg.as_str(), Regex::new(regexes[format_arg.as_str()]).unwrap()),
+            None => {
+                let first_line = lines.next().unwrap().unwrap();
+                let (format_name, regex) = autodetect_format(regexes, first_line.as_str());
+                (format_name, regex)
+            }
+        };
 
-    let extract_re = match args.format {
-        Some(format) => Regex::new(regexes[format.as_str()]).unwrap(),
-        None => {
-            let first_line = lines.next().unwrap().unwrap();
-            let (_, regex) = autodetect_format(regexes, first_line.as_str());
-            process_line(&regex, &match_re, &args.field.as_str(), first_line.as_str());
-            regex
+        println!("Format:           {}", format_name);
+        println!("Regex:            {}", extract_re.as_str());
+        // FIXME use intersperse/collect when released from nightly rust builds
+        println!("Available Fields: {}", extract_re.capture_names().flatten().collect::<Vec<&str>>().join(", "));
+    } else {
+        if args.field == None || args.regex == None {
+            panic!("No field/regex specified to filter with");
         }
-    };
 
-    for line in lines {
-        let line = line.unwrap();
-        process_line(&extract_re, &match_re, &args.field.as_str(), line.as_str());
+        let field = args.field.unwrap();
+        let match_re = Regex::new(args.regex.unwrap().as_str()).unwrap();
+
+        let extract_re = match &args.format {
+            Some(format_arg) => Regex::new(regexes[format_arg.as_str()]).unwrap(),
+            None => {
+                let first_line = lines.next().unwrap().unwrap();
+                let (_, regex) = autodetect_format(regexes, first_line.as_str());
+                process_line(&regex, &match_re, field.as_str(), first_line.as_str());
+                regex
+            }
+        };
+
+        for line in lines {
+            let line = line.unwrap();
+            process_line(&extract_re, &match_re, field.as_str(), line.as_str());
+        }
     }
     Ok(())
 }
@@ -68,7 +92,6 @@ fn autodetect_format<'a>(regexes: HashMap<&'a str, &str>, line: &str) -> (&'a st
     for (name, regex) in regexes {
         let regex = Regex::new(regex).unwrap();
         if regex.is_match(line) {
-            eprintln!("Detected format {}", name);
             return (name, regex);
         }
     }
