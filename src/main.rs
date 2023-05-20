@@ -48,7 +48,37 @@ fn main() -> io::Result<()> {
         // https://github.com/python/cpython/blob/main/Lib/logging/__init__.py#LL538C19-L538C19
         // E.g. ERROR:root:Some error
         // E.g. WARNING:root:This is a log line!
-        ("python", r"^(?<levelname>\w+):(?<name>[\w.]+):(?<message>.+)$")
+        ("python", r"^(?<levelname>\w+):(?<name>[\w.]+):(?<message>.+)$"),
+
+        // Postgress stderr format
+        // %m [%p]
+        // https://www.postgresql.org/docs/current/runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT
+        // E.g. 2022-11-05 13:45:42.800 GMT [11287] LOG:  background worker "logical replication launcher" (PID 11294) exited with exit code 1
+        // E.g. 2022-10-28 20:57:14.662 BST [6058] jamieread@jobby ERROR:  relation "jobs" does not exist at character 40
+        ("postgresql", r"^(?<timestamp>\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d.\d\d\d \w\w\w) \[(?<pid>\d+)\] (?:(?<user>\w+)@(?<database>\w+) )?(?<type>\w+):  (?<message>.+)$"),
+
+        // update-alternatives format
+        // ?
+        // /var/log/alternatives.log
+        // E.g. update-alternatives 2022-07-16 16:51:22: link group sar updated to point to /usr/bin/sar.sysstat
+        ("update-alternatives", r"^update-alternatives (?<timestamp>\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d): (?<message>.+)$"),
+
+        // dpkg format
+        // https://man7.org/linux/man-pages/man1/dpkg.1.html
+        // /var/log/dpkg.log
+        // E.g. 2022-06-07 02:13:22 startup packages configure
+        // E.g. 2022-06-07 02:13:23 status installed linux-headers-generic:amd64 5.15.0.35.38
+        // E.g. 2022-06-07 02:13:23 remove linux-headers-generic:amd64 5.15.0.35.38 <none>
+        // E.g. 2022-06-07 02:13:22 conffile /path/to install
+        ("dpkg", r"^(?<timestamp>\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d) (startup (?<type>\w+) (?<command>\w+)|status (?<state>\S+) (?<pkg>\S+) (?<installed_version>\S+)|(?<action>\w+) (?<pkg_2>\S+) (?<installed_version_2>\S+) (?<available_version>\S+)|conffile (?<filename>.+) (?<decision>\w+))$")
+
+        // TODO CEF
+        // TODO ELF
+        // TODO GELF (JSON based)
+        // TODO NCSA
+        // TODO W3C Extended Log Format
+        // TODO IIS Server
+        // https://www.graylog.org/post/log-formats-a-complete-guide/
     ]);
 
     let args = Cli::parse();
@@ -119,9 +149,10 @@ fn process_line(extract_re: &Regex, match_re: &Regex, field: &str, line: &str, i
     let captures = extract_re.captures(line);
     match captures {
         Some(captures) => {
-            let match_field = captures.name(field).unwrap().as_str();
-            if match_re.is_match(match_field) != invert_match {
-                println!("{}", line)
+            if let Some(match_field) = captures.name(field) {
+                if match_re.is_match(match_field.as_str()) != invert_match {
+                    println!("{}", line)
+                }
             }
         }
         None => eprintln!("Line could not be decoded into the expected format")

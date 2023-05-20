@@ -35,7 +35,8 @@ cat logfile.txt | loggrep -F nginx request "^GET"
 
 ## Supported Formats
 ### nginx
-The default format of nginx logs is supported. You can query against the following fields which map to the nginx variables of the same name.
+The default format of nginx logs. The following fields map to the nginx variables of the same name.
+
 Fields:
 - `remote_addr`
 - `remote_user`
@@ -47,11 +48,44 @@ Fields:
 
 ### syslog-bsd
 Original BSD syslog format defined in [RFC-3164](https://www.ietf.org/rfc/rfc3164.txt)
+
 Fields:
 - `priority`
 - `timestamp`
 - `hostname`
 - `message`
+
+### Python
+Default log format for Python as per [the source](https://github.com/python/cpython/blob/main/Lib/logging/__init__.py#LL538C19-L538C19)
+
+Fields:
+- `levelname`
+- `name`
+- `message`
+
+### update-alternatives
+Simple format for the update-alternatives log in `/var/log/alternatives.log`.
+
+Fields:
+- `timestamp`
+- `message`
+
+### dpkg
+Format for dpkg logs in `/var/log/dpkg.log` as per the [man page](https://man7.org/linux/man-pages/man1/dpkg.1.html). Note that this log format has three different forms which makes it tricky to parse. Due to internal limitations, currently some fields need to be repeated with a numeric on the end.
+
+Fields:
+- `timestamp`
+- `type`
+- `command`
+- `state`
+- `pkg`
+- `installed_version`
+- `action`
+- `pkg_2`
+- `installed_version_2`
+- `available_version`
+- `filename`
+- `decision`
 
 ## TODO
 - More formats
