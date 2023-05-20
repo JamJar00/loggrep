@@ -91,7 +91,7 @@ fn main() -> io::Result<()> {
 fn autodetect_format<'a>(regexes: HashMap<&'a str, &str>, line: &str) -> (&'a str, Regex) {
     for (name, regex) in regexes {
         let regex = Regex::new(regex).unwrap();
-        if regex.is_match(line) {
+        if regex.is_match(line.trim()) {
             return (name, regex);
         }
     }
@@ -100,6 +100,11 @@ fn autodetect_format<'a>(regexes: HashMap<&'a str, &str>, line: &str) -> (&'a st
 
 
 fn process_line(extract_re: &Regex, match_re: &Regex, field: &str, line: &str) {
+    let line = line.trim();
+    if line.is_empty() {
+        return;
+    }
+
     let captures = extract_re.captures(line);
     match captures {
         Some(captures) => {
