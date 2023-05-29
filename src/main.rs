@@ -10,9 +10,6 @@ struct Cli {
     #[arg(short = 'F', long, help = "Specify the expected format of the logs")]
     format: Option<String>,
 
-    #[arg(short = 'I', long, help = "Prints info about the log format instead of filtering")]
-    info: bool,
-
     #[arg(short = 'i', long, help = "Ignore case")]
     ignore_case: bool,
 
@@ -79,25 +76,52 @@ fn main() -> io::Result<()> {
         // TODO W3C Extended Log Format
         // TODO IIS Server
         // https://www.graylog.org/post/log-formats-a-complete-guide/
+
+        // TODO redis
     ]);
 
     let args = Cli::parse();
     let mut lines = io::stdin().lock().lines();
 
-    if args.info {
+    if args.field == None && args.regex == None {
+        let first_line = lines.next().unwrap().unwrap();
         let (format_name, extract_re) = match &args.format {
             Some(format_arg) => (format_arg.as_str(), Regex::new(regexes[format_arg.as_str()]).unwrap()),
             None => {
-                let first_line = lines.next().unwrap().unwrap();
                 let (format_name, regex) = autodetect_format(regexes, first_line.as_str());
                 (format_name, regex)
             }
         };
 
-        println!("Format:           {}", format_name);
-        println!("Regex:            {}", extract_re.as_str());
+        println!("Log format appears to be {}", format_name);
+        println!();
         // FIXME use intersperse/collect when released from nightly rust builds
-        println!("Available Fields: {}", extract_re.capture_names().flatten().collect::<Vec<&str>>().join(", "));
+        println!("This format contains the following fields: {}", extract_re.capture_names().flatten().collect::<Vec<&str>>().join(", "));
+        println!();
+        let captures = extract_re.captures(first_line.as_str());
+        match captures {
+            Some(captures) => {
+                println!("The first line:");
+                println!("    {}", first_line);
+                println!();
+                println!("Has the following properties:");
+                println!("{:^16}|{:^32}", "Property", "Value");
+                println!("{:-^16}|{:-^32}", "", "");
+                for capture_name in extract_re.capture_names().flatten() {
+                    if let Some(capture) = captures.name(capture_name) {
+                        println!("{:<16}| {}", capture_name, capture.as_str());
+                    }
+                }
+                println!();
+                println!("Choose one of the fields to filter on to grep these logs. E.g.");
+                let first_capture_name = extract_re.capture_names().flatten().nth(0).unwrap();
+                // TODO this provides an exact value, not a regex for the second field so is
+                // unlikely to be right a lot of the time!
+                println!("    loggrep {} '{}'", first_capture_name, captures.name(first_capture_name).map_or("<some value>", |x| x.as_str()));
+            }
+            None => eprintln!("First line could not be decoded into the expected format")
+        }
+
     } else {
         if args.field == None || args.regex == None {
             panic!("No field/regex specified to filter with");
