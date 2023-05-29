@@ -1,12 +1,12 @@
 # loggrep
 Grep, but for log files of various shapes and sizes
 
-This project was created in a single evening with the intention that I'll add more log formats to it as I go along and feel like they would be useful. There's no guarantee I'll actually do that though.
+This project was created in slightly more than an evening with the intention that I'll add more log formats to it as I go along and feel like they would be useful. There's no guarantee I'll actually do that though.
+
 ## Installation
-Sorry, currently you'll have to compile from source:
-```bash
-cargo build --release
-```
+Download the latest release from the [releases page](https://github.com/JamJar00/loggrep/releases) and add it somewhere on your path (e.g. `~/.bin/local`).
+
+Windows users will currently need to build from source using `cargo build --release`, sorry!
 
 ## Usage
 ```
@@ -94,4 +94,3 @@ Fields:
 - Support matching on multiple fields? (You can always just pipe loggrep into loggrep to do this...)
 - Tests, always tests
 - Support custom log formats from config file
-- Make output of -I a bit clearer (particularly the regex)
