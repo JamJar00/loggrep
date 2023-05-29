@@ -8,6 +8,8 @@ Download the latest release from the [releases page](https://github.com/JamJar00
 
 Windows users will currently need to build from source using `cargo build --release`, sorry!
 
+There is also a docker image available here
+
 ## Usage
 ```
 Grep, but for log files of various shapes and sizes
@@ -26,11 +28,16 @@ Options:
 
 For example, for filter for nginx requests from `66.249.65.159`, you could do:
 ```bash
-cat logfile.txt | loggrep -F nginx remote_addr "^66.249.65.159$"
+cat logfile.txt | loggrep remote_addr "^66.249.65.159$"
 ```
 Or to filter for GET requests:
 ```bash
-cat logfile.txt | loggrep -F nginx request "^GET"
+cat logfile.txt | loggrep request "^GET"
+```
+
+With docker:
+```bash
+cat logfile.txt | docker run -i jamoyjamie/loggrep request "^GET"
 ```
 
 ## Supported Formats
