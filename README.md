@@ -8,7 +8,7 @@ Download the latest release from the [releases page](https://github.com/JamJar00
 
 Windows users will currently need to build from source using `cargo build --release`, sorry!
 
-There is also a docker image available here
+There is also a docker image available on [Docker Hub](https://hub.docker.com/r/jamoyjamie/loggrep)
 
 ## Usage
 ```
@@ -37,7 +37,7 @@ cat logfile.txt | loggrep request "^GET"
 
 With docker:
 ```bash
-cat logfile.txt | docker run -i jamoyjamie/loggrep request "^GET"
+cat logfile.txt | docker run -i jamoyjamie/loggrep:<version> request "^GET"
 ```
 
 ## Supported Formats
