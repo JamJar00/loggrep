@@ -42,6 +42,8 @@ cat logfile.txt | docker run -i jamoyjamie/loggrep:<version> request "^GET"
 
 ## Supported Formats
 ### nginx
+Format identifier: `nginx`
+
 The default format of nginx logs. The following fields map to the nginx variables of the same name.
 
 Fields:
@@ -54,6 +56,8 @@ Fields:
 - `user_agent`
 
 ### syslog-bsd
+Format identifier: `syslog-bsd`
+
 Original BSD syslog format defined in [RFC-3164](https://www.ietf.org/rfc/rfc3164.txt)
 
 Fields:
@@ -63,6 +67,8 @@ Fields:
 - `message`
 
 ### Python
+Format identifier: `python`
+
 Default log format for Python as per [the source](https://github.com/python/cpython/blob/main/Lib/logging/__init__.py#LL538C19-L538C19)
 
 Fields:
@@ -70,7 +76,20 @@ Fields:
 - `name`
 - `message`
 
+### PostgreSQL
+Format identifier: `postgresql`
+
+Default PostgreSQL database log format as per the [documentation](https://www.postgresql.org/docs/current/runtime-config-logging.html#RUNTIME-CONFIG-LOGGING-WHAT)
+- `timestamp`
+- `pid`
+- `user`
+- `database`
+- `type`
+- `message`
+
 ### update-alternatives
+Format identifier: `update-alternatives`
+
 Simple format for the update-alternatives log in `/var/log/alternatives.log`.
 
 Fields:
@@ -78,6 +97,8 @@ Fields:
 - `message`
 
 ### dpkg
+Format identifier: `dpkg`
+
 Format for dpkg logs in `/var/log/dpkg.log` as per the [man page](https://man7.org/linux/man-pages/man1/dpkg.1.html). Note that this log format has three different forms which makes it tricky to parse. Due to internal limitations, currently some fields need to be repeated with a numeric on the end.
 
 Fields:
@@ -94,8 +115,32 @@ Fields:
 - `filename`
 - `decision`
 
+### Common Log Format (CLF)/NCSA/Combined Log Format (also CLF)
+Format identifier: `clf`
+
+Common Log Format as per [Wikipedia](https://en.wikipedia.org/wiki/Common_Log_Format) and [Microsoft](https://learn.microsoft.com/en-us/windows/win32/http/ncsa-logging) also known as NCSA HTTPd used by web servers. This also implements to Combined Log Format as per the [httpd docs](https://httpd.apache.org/docs/2.4/logs.html) which is the same but with some additional fields.
+
+Fields:
+- `host`
+- `ident`
+- `auth_user`
+- `timestamp`
+- `request`
+- `status`
+- `bytes`
+- `referer` (combined log format)
+- `user_agent` (combined log format)
+
+
 ## TODO
 - More formats
+  - CEF
+  - ELF
+  - GELF (JSON based)
+  - W3C Extended Log Format
+  - IIS Server
+    - //https://www.graylog.org/post/log-formats-a-complete-guide/
+  - redis
 - Add argument to draw logs from file
 - Add colour to matched field if outputting to a terminal
 - Support matching on multiple fields? (You can always just pipe loggrep into loggrep to do this...)

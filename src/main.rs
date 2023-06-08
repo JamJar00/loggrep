@@ -67,17 +67,15 @@ fn main() -> io::Result<()> {
         // E.g. 2022-06-07 02:13:23 status installed linux-headers-generic:amd64 5.15.0.35.38
         // E.g. 2022-06-07 02:13:23 remove linux-headers-generic:amd64 5.15.0.35.38 <none>
         // E.g. 2022-06-07 02:13:22 conffile /path/to install
-        ("dpkg", r"^(?<timestamp>\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d) (startup (?<type>\w+) (?<command>\w+)|status (?<state>\S+) (?<pkg>\S+) (?<installed_version>\S+)|(?<action>\w+) (?<pkg_2>\S+) (?<installed_version_2>\S+) (?<available_version>\S+)|conffile (?<filename>.+) (?<decision>\w+))$")
+        ("dpkg", r"^(?<timestamp>\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d) (startup (?<type>\w+) (?<command>\w+)|status (?<state>\S+) (?<pkg>\S+) (?<installed_version>\S+)|(?<action>\w+) (?<pkg_2>\S+) (?<installed_version_2>\S+) (?<available_version>\S+)|conffile (?<filename>.+) (?<decision>\w+))$"),
 
-        // TODO CEF
-        // TODO ELF
-        // TODO GELF (JSON based)
-        // TODO NCSA
-        // TODO W3C Extended Log Format
-        // TODO IIS Server
-        // https://www.graylog.org/post/log-formats-a-complete-guide/
-
-        // TODO redis
+        // Common Log Format/NCSA/Combined Log Format format
+        // https://en.wikipedia.org/wiki/Common_Log_Format
+        // https://learn.microsoft.com/en-us/windows/win32/http/ncsa-logging
+        // E.g. 127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326
+        // E.g. 172.21.13.45 - Microsoft\JohnDoe [07/Apr/2004:17:39:04 -0800] "GET /scripts/iisadmin/ism.dll?http/serv HTTP/1.0" 200 3401
+        // E.g. 127.0.0.1 - frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326 "http://www.example.com/start.html" "Mozilla/4.08 [en] (Win98; I ;Nav)"
+        ("clf", r#"^(?<host>.+) (?<ident>.+) (?<auth_user>.+) \[(?<timestamp>\d\d/\w\w\w/\d\d\d\d:\d\d:\d\d:\d\d -?\d\d\d\d)\] "(?<request>.+)" (?<status>\d+) (?<bytes>\d+)(?: "(?<referer>.+)" "(?<user_agent>.+))?$"#)
     ]);
 
     let args = Cli::parse();
