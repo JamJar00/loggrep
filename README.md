@@ -14,14 +14,17 @@ There is also a docker image available on [Docker Hub](https://hub.docker.com/r/
 ```
 Grep, but for log files of various shapes and sizes
 
-Usage: loggrep --format <FORMAT> <FIELD> <REGEX>
+Usage: loggrep [OPTIONS] [FIELD] [PATTERN]
 
 Arguments:
-  <FIELD>
-  <REGEX>
+  [FIELD]    Field to filter on
+  [PATTERN]  Pattern to filter the field on
 
 Options:
-  -F, --format <FORMAT>
+  -f, --format <FORMAT>  Specify the expected format of the logs
+  -i, --ignore-case      Ignore case
+  -v, --invert-match     Invert the sense of matching, to select non-matching lines
+  -F, --fixed            Set the pattern to compare fixed strings rather than a regex
   -h, --help             Print help
   -V, --version          Print version
 ```
@@ -141,6 +144,9 @@ Fields:
   - IIS Server
     - //https://www.graylog.org/post/log-formats-a-complete-guide/
   - redis
+  - Syslog IETF format
+  - Syslog Extended IETF format
+    - https://datatracker.ietf.org/doc/html/rfc5424
 - Add argument to draw logs from file
 - Add colour to matched field if outputting to a terminal
 - Support matching on multiple fields? (You can always just pipe loggrep into loggrep to do this...)

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(short = 'F', long, help = "Specify the expected format of the logs")]
+    #[arg(short = 'f', long, help = "Specify the expected format of the logs")]
     format: Option<String>,
 
     #[arg(short = 'i', long, help = "Ignore case")]
@@ -16,11 +16,20 @@ struct Cli {
     #[arg(short = 'v', long, help = "Invert the sense of matching, to select non-matching lines")]
     invert_match: bool,
 
+    #[arg(short = 'F', long, help = "Set the pattern to compare fixed strings rather than a regex")]
+    fixed: bool,
+
     #[arg(value_parser, help = "Field to filter on")]
     field: Option<String>,
 
-    #[arg(value_parser, help = "Regex to filter the field on")]
-    regex: Option<String>
+    #[arg(value_parser, help = "Pattern to filter the field on")]
+    pattern: Option<String>
+}
+
+enum Pattern {
+    Regex(Regex),
+    Fixed(String),
+    FixedIgnoreCase(String)
 }
 
 fn main() -> io::Result<()> {
@@ -35,10 +44,6 @@ fn main() -> io::Result<()> {
         // <priority>timestamp hostname: message
         // E.g. <34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8
         ("syslog-bsd", r"^<(?<priority>\d{1,3}+)>(?<timestamp>\w\w\w [\d ]\d \d\d:\d\d:\d\d) (?<hostname>\S+) (?<message>.+)$"),
-
-        // TODO Syslog IETF format
-        // TODO Syslog Extended IETF format
-        // https://datatracker.ietf.org/doc/html/rfc5424
 
         // Python default format
         // %(levelname)s:%(name)s:%(message)s
@@ -81,7 +86,7 @@ fn main() -> io::Result<()> {
     let args = Cli::parse();
     let mut lines = io::stdin().lock().lines();
 
-    if args.field == None && args.regex == None {
+    if args.field == None && args.pattern == None {
         let first_line = lines.next().unwrap().unwrap();
         let (format_name, extract_re) = match &args.format {
             Some(format_arg) => (format_arg.as_str(), Regex::new(regexes[format_arg.as_str()]).unwrap()),
@@ -121,31 +126,40 @@ fn main() -> io::Result<()> {
         }
 
     } else {
-        if args.field == None || args.regex == None {
-            panic!("No field/regex specified to filter with");
+        if args.field == None || args.pattern == None {
+            panic!("No field/pattern specified to filter with");
         }
 
         let field = args.field.unwrap();
-        let regex = if args.ignore_case {
-            "(?i)".to_string() + args.regex.unwrap().as_str()
+        let pattern = args.pattern.unwrap();
+        let pattern: Pattern = if args.fixed {
+            if args.ignore_case {
+                Pattern::FixedIgnoreCase(pattern)
+            } else {
+                Pattern::Fixed(pattern)
+            }
         } else {
-            args.regex.unwrap()
+            if args.ignore_case {
+                let pattern_ignore_case = "(?i)".to_string() + pattern.as_str();
+                Pattern::Regex(Regex::new(pattern_ignore_case.as_str()).unwrap())
+            } else {
+                Pattern::Regex(Regex::new(pattern.as_str()).unwrap())
+            }
         };
-        let match_re = Regex::new(regex.as_str()).unwrap();
 
         let extract_re = match &args.format {
             Some(format_arg) => Regex::new(regexes[format_arg.as_str()]).unwrap(),
             None => {
                 let first_line = lines.next().unwrap().unwrap();
                 let (_, regex) = autodetect_format(regexes, first_line.as_str());
-                process_line(&regex, &match_re, field.as_str(), first_line.as_str(), args.invert_match);
+                process_line(&regex, &pattern, field.as_str(), first_line.as_str(), args.invert_match);
                 regex
             }
         };
 
         for line in lines {
             let line = line.unwrap();
-            process_line(&extract_re, &match_re, field.as_str(), line.as_str(), args.invert_match);
+            process_line(&extract_re, &pattern, field.as_str(), line.as_str(), args.invert_match);
         }
     }
     Ok(())
@@ -162,7 +176,7 @@ fn autodetect_format<'a>(regexes: HashMap<&'a str, &str>, line: &str) -> (&'a st
 }
 
 
-fn process_line(extract_re: &Regex, match_re: &Regex, field: &str, line: &str, invert_match: bool) {
+fn process_line(extract_re: &Regex, pattern: &Pattern, field: &str, line: &str, invert_match: bool) {
     let line = line.trim();
     if line.is_empty() {
         return;
@@ -171,12 +185,20 @@ fn process_line(extract_re: &Regex, match_re: &Regex, field: &str, line: &str, i
     let captures = extract_re.captures(line);
     match captures {
         Some(captures) => {
-            if let Some(match_field) = captures.name(field) {
-                if match_re.is_match(match_field.as_str()) != invert_match {
+            if let Some(value) = captures.name(field) {
+                if is_match(pattern, value.as_str()) != invert_match {
                     println!("{}", line)
                 }
             }
         }
         None => eprintln!("Line could not be decoded into the expected format")
+    }
+}
+
+fn is_match(pattern: &Pattern, value: &str) -> bool {
+    match pattern {
+        Pattern::Regex(match_re) => match_re.is_match(value),
+        Pattern::Fixed(match_str) => match_str.eq(value),
+        Pattern::FixedIgnoreCase(match_str) => match_str.eq_ignore_ascii_case(value)
     }
 }
