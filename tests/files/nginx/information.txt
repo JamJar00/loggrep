@@ -1,0 +1,20 @@
+Log format appears to be nginx
+
+This format contains the following fields: remote_addr, remote_user, request, status, body_bytes_sent, http_referer, user_agent
+
+The first line:
+    66.249.65.159 - - [06/Nov/2014:19:10:38 +0600] "GET /news/53f8d72920ba2744fe873ebc.html HTTP/1.1" 404 177 "-" "Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+
+Has the following properties:
+    Property    |             Value              
+----------------|--------------------------------
+remote_addr     | 66.249.65.159
+remote_user     | -
+request         | GET /news/53f8d72920ba2744fe873ebc.html HTTP/1.1
+status          | 404
+body_bytes_sent | 177
+http_referer    | -
+user_agent      | Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)
+
+Choose one of the fields to filter on to grep these logs. E.g.
+    loggrep remote_addr -F '66.249.65.159'

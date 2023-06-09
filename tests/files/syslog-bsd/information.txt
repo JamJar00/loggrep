@@ -1,0 +1,17 @@
+Log format appears to be syslog-bsd
+
+This format contains the following fields: priority, timestamp, hostname, message
+
+The first line:
+    <34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8
+
+Has the following properties:
+    Property    |             Value              
+----------------|--------------------------------
+priority        | 34
+timestamp       | Oct 11 22:14:15
+hostname        | mymachine
+message         | su: 'su root' failed for lonvick on /dev/pts/8
+
+Choose one of the fields to filter on to grep these logs. E.g.
+    loggrep priority -F '34'
