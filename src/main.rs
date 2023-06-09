@@ -2,37 +2,10 @@ use std::io::{BufRead, Lines, StdinLock};
 use regex::Regex;
 use clap::Parser;
 use std::collections::HashMap;
+use lazy_static::lazy_static;
 
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
-    #[arg(short = 'f', long, help = "Specify the expected format of the logs")]
-    format: Option<String>,
-
-    #[arg(short = 'i', long, help = "Ignore case")]
-    ignore_case: bool,
-
-    #[arg(short = 'v', long, help = "Invert the sense of matching, to select non-matching lines")]
-    invert_match: bool,
-
-    #[arg(short = 'F', long, help = "Set the pattern to compare fixed strings rather than a regex")]
-    fixed: bool,
-
-    #[arg(value_parser, help = "Field to filter on")]
-    field: Option<String>,
-
-    #[arg(value_parser, help = "Pattern to filter the field on")]
-    pattern: Option<String>
-}
-
-enum Pattern {
-    Regex(Regex),
-    Fixed(String),
-    FixedIgnoreCase(String)
-}
-
-fn main() -> std::io::Result<()> {
-    let regexes = HashMap::from([
+lazy_static! {
+    static ref REGEXES: HashMap<&'static str, &'static str> = HashMap::from([
         // Nginx (default format)
         // $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
         // E.g. 66.249.65.159 - - [06/Nov/2014:19:10:38 +0600] "GET /news/53f8d72920ba2744fe873ebc.html HTTP/1.1" 404 177 "-" "Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
@@ -81,12 +54,42 @@ fn main() -> std::io::Result<()> {
         // E.g. 127.0.0.1 - frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326 "http://www.example.com/start.html" "Mozilla/4.08 [en] (Win98; I ;Nav)"
         ("clf", r#"^(?<host>.+) (?<ident>.+) (?<auth_user>.+) \[(?<timestamp>\d\d/\w\w\w/\d\d\d\d:\d\d:\d\d:\d\d -?\d\d\d\d)\] "(?<request>.+)" (?<status>\d+) (?<bytes>\d+)(?: "(?<referer>.+)" "(?<user_agent>.+))?$"#)
     ]);
+}
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[arg(short = 'f', long, help = "Specify the expected format of the logs")]
+    format: Option<String>,
+
+    #[arg(short = 'i', long, help = "Ignore case")]
+    ignore_case: bool,
+
+    #[arg(short = 'v', long, help = "Invert the sense of matching, to select non-matching lines")]
+    invert_match: bool,
+
+    #[arg(short = 'F', long, help = "Set the pattern to compare fixed strings rather than a regex")]
+    fixed: bool,
+
+    #[arg(value_parser, help = "Field to filter on")]
+    field: Option<String>,
+
+    #[arg(value_parser, help = "Pattern to filter the field on")]
+    pattern: Option<String>
+}
+
+enum Pattern {
+    Regex(Regex),
+    Fixed(String),
+    FixedIgnoreCase(String)
+}
+
+fn main() -> std::io::Result<()> {
     let args = Cli::parse();
     let lines = std::io::stdin().lock().lines();
 
     if args.field == None && args.pattern == None {
-        information(regexes, lines, args.format);
+        information(lines, args.format);
     } else {
         if args.field == None || args.pattern == None {
             panic!("No field/pattern specified to filter with");
@@ -94,17 +97,17 @@ fn main() -> std::io::Result<()> {
 
         let field = args.field.unwrap();
         let pattern = build_pattern(args.pattern.unwrap(), args.fixed, args.ignore_case);
-        filter(regexes, lines, args.format, field, pattern, args.invert_match);
+        filter(lines, args.format, field, pattern, args.invert_match);
     }
     Ok(())
 }
 
-fn information(regexes: HashMap<&str, &str>, mut lines: Lines<StdinLock>, format: Option<String>) {
+fn information(mut lines: Lines<StdinLock>, format: Option<String>) {
     let first_line = lines.next().unwrap().unwrap();
     let (format_name, extract_re) = match &format {
-        Some(format_arg) => (format_arg.as_str(), Regex::new(regexes[format_arg.as_str()]).unwrap()),
+        Some(format_arg) => (format_arg.as_str(), Regex::new(REGEXES[format_arg.as_str()]).unwrap()),
         None => {
-            let (format_name, regex) = autodetect_format(regexes, first_line.as_str());
+            let (format_name, regex) = autodetect_format(first_line.as_str());
             (format_name, regex)
         }
     };
@@ -138,12 +141,12 @@ fn information(regexes: HashMap<&str, &str>, mut lines: Lines<StdinLock>, format
 
 }
 
-fn filter(regexes: HashMap<&str, &str>, mut lines: Lines<StdinLock>, format: Option<String>, field: String, pattern: Pattern, invert_match: bool) {
+fn filter(mut lines: Lines<StdinLock>, format: Option<String>, field: String, pattern: Pattern, invert_match: bool) {
     let extract_re = match &format {
-        Some(format_arg) => Regex::new(regexes[format_arg.as_str()]).unwrap(),
+        Some(format_arg) => Regex::new(REGEXES[format_arg.as_str()]).unwrap(),
         None => {
             let first_line = lines.next().unwrap().unwrap();
-            let (_, regex) = autodetect_format(regexes, first_line.as_str());
+            let (_, regex) = autodetect_format(first_line.as_str());
             process_line(&regex, &pattern, field.as_str(), first_line.as_str(), invert_match);
             regex
         }
@@ -155,8 +158,8 @@ fn filter(regexes: HashMap<&str, &str>, mut lines: Lines<StdinLock>, format: Opt
     }
 }
 
-fn autodetect_format<'a>(regexes: HashMap<&'a str, &str>, line: &str) -> (&'a str, Regex) {
-    for (name, regex) in regexes {
+fn autodetect_format<'a>(line: &str) -> (&'a str, Regex) {
+    for (name, regex) in &*REGEXES {
         let regex = Regex::new(regex).unwrap();
         if regex.is_match(line.trim()) {
             return (name, regex);
