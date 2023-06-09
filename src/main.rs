@@ -1,6 +1,5 @@
-use std::io;
+use std::io::{BufRead, Lines, StdinLock};
 use regex::Regex;
-use std::io::BufRead;
 use clap::Parser;
 use std::collections::HashMap;
 
@@ -32,7 +31,7 @@ enum Pattern {
     FixedIgnoreCase(String)
 }
 
-fn main() -> io::Result<()> {
+fn main() -> std::io::Result<()> {
     let regexes = HashMap::from([
         // Nginx (default format)
         // $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
@@ -84,85 +83,76 @@ fn main() -> io::Result<()> {
     ]);
 
     let args = Cli::parse();
-    let mut lines = io::stdin().lock().lines();
+    let lines = std::io::stdin().lock().lines();
 
     if args.field == None && args.pattern == None {
-        let first_line = lines.next().unwrap().unwrap();
-        let (format_name, extract_re) = match &args.format {
-            Some(format_arg) => (format_arg.as_str(), Regex::new(regexes[format_arg.as_str()]).unwrap()),
-            None => {
-                let (format_name, regex) = autodetect_format(regexes, first_line.as_str());
-                (format_name, regex)
-            }
-        };
-
-        println!("Log format appears to be {}", format_name);
-        println!();
-        // FIXME use intersperse/collect when released from nightly rust builds
-        println!("This format contains the following fields: {}", extract_re.capture_names().flatten().collect::<Vec<&str>>().join(", "));
-        println!();
-        let captures = extract_re.captures(first_line.as_str());
-        match captures {
-            Some(captures) => {
-                println!("The first line:");
-                println!("    {}", first_line);
-                println!();
-                println!("Has the following properties:");
-                println!("{:^16}|{:^32}", "Property", "Value");
-                println!("{:-^16}|{:-^32}", "", "");
-                for capture_name in extract_re.capture_names().flatten() {
-                    if let Some(capture) = captures.name(capture_name) {
-                        println!("{:<16}| {}", capture_name, capture.as_str());
-                    }
-                }
-                println!();
-                println!("Choose one of the fields to filter on to grep these logs. E.g.");
-                let first_capture_name = extract_re.capture_names().flatten().nth(0).unwrap();
-                // TODO this provides an exact value, not a regex for the second field so is
-                // unlikely to be right a lot of the time!
-                println!("    loggrep {} '{}'", first_capture_name, captures.name(first_capture_name).map_or("<some value>", |x| x.as_str()));
-            }
-            None => eprintln!("First line could not be decoded into the expected format")
-        }
-
+        information(regexes, lines, args.format);
     } else {
         if args.field == None || args.pattern == None {
             panic!("No field/pattern specified to filter with");
         }
 
         let field = args.field.unwrap();
-        let pattern = args.pattern.unwrap();
-        let pattern: Pattern = if args.fixed {
-            if args.ignore_case {
-                Pattern::FixedIgnoreCase(pattern)
-            } else {
-                Pattern::Fixed(pattern)
-            }
-        } else {
-            if args.ignore_case {
-                let pattern_ignore_case = "(?i)".to_string() + pattern.as_str();
-                Pattern::Regex(Regex::new(pattern_ignore_case.as_str()).unwrap())
-            } else {
-                Pattern::Regex(Regex::new(pattern.as_str()).unwrap())
-            }
-        };
-
-        let extract_re = match &args.format {
-            Some(format_arg) => Regex::new(regexes[format_arg.as_str()]).unwrap(),
-            None => {
-                let first_line = lines.next().unwrap().unwrap();
-                let (_, regex) = autodetect_format(regexes, first_line.as_str());
-                process_line(&regex, &pattern, field.as_str(), first_line.as_str(), args.invert_match);
-                regex
-            }
-        };
-
-        for line in lines {
-            let line = line.unwrap();
-            process_line(&extract_re, &pattern, field.as_str(), line.as_str(), args.invert_match);
-        }
+        let pattern = build_pattern(args.pattern.unwrap(), args.fixed, args.ignore_case);
+        filter(regexes, lines, args.format, field, pattern, args.invert_match);
     }
     Ok(())
+}
+
+fn information(regexes: HashMap<&str, &str>, mut lines: Lines<StdinLock>, format: Option<String>) {
+    let first_line = lines.next().unwrap().unwrap();
+    let (format_name, extract_re) = match &format {
+        Some(format_arg) => (format_arg.as_str(), Regex::new(regexes[format_arg.as_str()]).unwrap()),
+        None => {
+            let (format_name, regex) = autodetect_format(regexes, first_line.as_str());
+            (format_name, regex)
+        }
+    };
+
+    println!("Log format appears to be {}", format_name);
+    println!();
+    // FIXME use intersperse/collect when released from nightly rust builds
+    println!("This format contains the following fields: {}", extract_re.capture_names().flatten().collect::<Vec<&str>>().join(", "));
+    println!();
+    let captures = extract_re.captures(first_line.as_str());
+    match captures {
+        Some(captures) => {
+            println!("The first line:");
+            println!("    {}", first_line);
+            println!();
+            println!("Has the following properties:");
+            println!("{:^16}|{:^32}", "Property", "Value");
+            println!("{:-^16}|{:-^32}", "", "");
+            for capture_name in extract_re.capture_names().flatten() {
+                if let Some(capture) = captures.name(capture_name) {
+                    println!("{:<16}| {}", capture_name, capture.as_str());
+                }
+            }
+            println!();
+            println!("Choose one of the fields to filter on to grep these logs. E.g.");
+            let first_capture_name = extract_re.capture_names().flatten().nth(0).unwrap();
+            println!("    loggrep {} -F '{}'", first_capture_name, captures.name(first_capture_name).map_or("<some value>", |x| x.as_str()));
+        }
+        None => eprintln!("First line could not be decoded into the expected format")
+    }
+
+}
+
+fn filter(regexes: HashMap<&str, &str>, mut lines: Lines<StdinLock>, format: Option<String>, field: String, pattern: Pattern, invert_match: bool) {
+    let extract_re = match &format {
+        Some(format_arg) => Regex::new(regexes[format_arg.as_str()]).unwrap(),
+        None => {
+            let first_line = lines.next().unwrap().unwrap();
+            let (_, regex) = autodetect_format(regexes, first_line.as_str());
+            process_line(&regex, &pattern, field.as_str(), first_line.as_str(), invert_match);
+            regex
+        }
+    };
+
+    for line in lines {
+        let line = line.unwrap();
+        process_line(&extract_re, &pattern, field.as_str(), line.as_str(), invert_match);
+    }
 }
 
 fn autodetect_format<'a>(regexes: HashMap<&'a str, &str>, line: &str) -> (&'a str, Regex) {
@@ -175,6 +165,22 @@ fn autodetect_format<'a>(regexes: HashMap<&'a str, &str>, line: &str) -> (&'a st
     panic!("Could not detect log format")
 }
 
+fn build_pattern(pattern: String, fixed: bool, ignore_case: bool) -> Pattern {
+    if fixed {
+        if ignore_case {
+            Pattern::FixedIgnoreCase(pattern)
+        } else {
+            Pattern::Fixed(pattern)
+        }
+    } else {
+        if ignore_case {
+            let pattern_ignore_case = "(?i)".to_string() + pattern.as_str();
+            Pattern::Regex(Regex::new(pattern_ignore_case.as_str()).unwrap())
+        } else {
+            Pattern::Regex(Regex::new(pattern.as_str()).unwrap())
+        }
+    }
+}
 
 fn process_line(extract_re: &Regex, pattern: &Pattern, field: &str, line: &str, invert_match: bool) {
     let line = line.trim();

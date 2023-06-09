@@ -31,16 +31,16 @@ Options:
 
 For example, for filter for nginx requests from `66.249.65.159`, you could do:
 ```bash
-cat logfile.txt | loggrep remote_addr "^66.249.65.159$"
+cat logfile.txt | loggrep -F remote_addr '66.249.65.159'
 ```
 Or to filter for GET requests:
 ```bash
-cat logfile.txt | loggrep request "^GET"
+cat logfile.txt | loggrep request '^GET'
 ```
 
 With docker:
 ```bash
-cat logfile.txt | docker run -i jamoyjamie/loggrep:<version> request "^GET"
+cat logfile.txt | docker run -i jamoyjamie/loggrep:<version> request '^GET'
 ```
 
 ## Supported Formats
