@@ -6,7 +6,10 @@ on:
 jobs:
   build:
     name: Build & Push Rust Package
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
 
@@ -19,8 +22,10 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: target/release/loggrep
-          fail_on_unmatched_files: true
+          files: |
+            target/release/loggrep
+            target/release/loggrep.exe
+          fail_on_unmatched_files: false
 
   build-and-push-docker-image:
     name: Build & Push Docker Image
