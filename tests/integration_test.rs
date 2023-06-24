@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use predicates::prelude::PredicateStrExt;
 
 #[test]
 fn test_nginx_information() {
@@ -12,7 +13,7 @@ fn test_nginx_information() {
     // THEN it is detected as nginx
     cmd.assert()
         .success()
-        .stdout(predicates::path::eq_file("tests/files/nginx/information.txt").utf8().unwrap());
+        .stdout(predicates::path::eq_file("tests/files/nginx/information.txt").utf8().unwrap().normalize());
 }
 
 #[test]
@@ -27,5 +28,5 @@ fn test_syslog_bsd_information() {
     // THEN it is detected as syslog-bsd
     cmd.assert()
         .success()
-        .stdout(predicates::path::eq_file("tests/files/syslog-bsd/information.txt").utf8().unwrap());
+        .stdout(predicates::path::eq_file("tests/files/syslog-bsd/information.txt").utf8().unwrap().normalize());
 }
